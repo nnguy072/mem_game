@@ -24,11 +24,11 @@ Output
 
 TODO
 ---
--[x] Wire LED matrix
--[x] Get dot to travel around LED matrix
--[x] Wire joystick and test
--[x] Get joystick to move dot around LED matrix
--[ ] Be able to draw/drop dots on the screen
--[ ] Wire LCD and display relevant information (time, menu, etc)
--[ ] Finish gmae logic
--[ ] Clean up wiring and put in a box to make it presentable
+- [x] Wire LED matrix
+- [x] Get dot to travel around LED matrix
+- [x] Wire joystick and test
+- [x] Get joystick to move dot around LED matrix
+- [ ] Be able to draw/drop dots on the screen
+- [ ] Wire LCD and display relevant information (time, menu, etc)
+- [ ] Finish gmae logic
+- [ ] Clean up wiring and put in a box to make it presentable
