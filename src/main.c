@@ -13,18 +13,18 @@ unsigned char dot_yVal = 0x04;
 unsigned char dot_xVal = 0xEF;
 
 // for the user pattern
-unsigned char pat_yVal[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-unsigned char pat_xVal[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+unsigned char pat_yVal[8] = {0x00, 0x3C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+unsigned char pat_xVal[8] = {0xFF, 0xEF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 // used to iterate through the user pattern
 unsigned char i =  0;
+unsigned char row = 0;
 
 //for checking out-of-range
 unsigned char upMask = 0x01;
 unsigned char downMask = 0x80;
 unsigned char leftMask = 0x80;
 unsigned char rightMask = 0x01;
-unsigned char buttonMask = 0x0F;
 
 // L/R and U/D values for joystick
 unsigned short L_R_Val = 0x00;
@@ -106,6 +106,8 @@ void display()
 		case off:
 			display_state = on;
 			break;
+		default:
+			break;
 	}
 	switch(display_state)
 	{
@@ -157,14 +159,14 @@ void shift(unsigned short refX, unsigned short refY)
 			
 			/*
 			// used for "normal" orientation
-			if((U_D_Val > (refY + 10)) && ((yVal & upMask) != 0x01))	// check upper boundary 
-				yVal = yVal >> 1;	// shift up
-			else if((U_D_Val < (refY - 10)) && ((yVal & downMask) != 0x80))	// check lower boundary
-				yVal = yVal << 1;	// shift down
-			if((L_R_Val < (refX - 10)) && ((xVal & leftMask) != 0x00))	// check left boundary
-				xVal = (xVal << 1) | 0x01;	// shift left
-			else if((L_R_Val > (refX + 10)) && (xVal & rightMask) != 0x00)	// check right boundary
-				xVal = (xVal >> 1) | 0x80;	// shift right
+			if((U_D_Val > (refY + 10)) && ((dot_yVal & upMask) != 0x01))	// check upper boundary 
+				dot_yVal = dot_yVal >> 1;	// shift down
+			else if((U_D_Val < (refY - 10)) && ((dot_yVal & downMask) != 0x80))	// check lower boundary
+				dot_yVal = dot_yVal << 1;	// shift down
+			if((L_R_Val < (refX - 10)) && ((dot_xVal & leftMask) != 0x00))	// check left boundary
+				dot_xVal = (dot_xVal << 1) | 0x01;	// shift left
+			else if((L_R_Val > (refX + 10)) && (dot_xVal & rightMask) != 0x00)	// check right boundary
+				dot_xVal = (dot_xVal >> 1) | 0x80;	// shift right
 			*/
 			
 			// rotated orientation because I tilted my breadboard
@@ -181,13 +183,129 @@ void shift(unsigned short refX, unsigned short refY)
 	}
 }
 
-//enum states{start, press, release, clear} draw_state;
-
+// draws users patterns
+enum draw_states{wait, decide, press, release, clear} draw_state;
+void draw_usr_patterns()
+{
+	// get PA6 & PA7
+	unsigned char button = (~PINA) & 0xC0;
+	switch(draw_state)
+	{
+		case wait:
+			// waits for button press
+			if(button != 0x00)
+				draw_state = decide;
+			break;
+		case decide:
+			if(button == 0x80)
+				draw_state = press;
+			else if(button == 0x40)
+				draw_state = clear;
+			else if(button == 0xC0)
+				draw_state = clear;
+			else
+				draw_state = wait;
+			break;
+		case press:
+			// PA7 still pressed
+			if(button == 0x80)
+				draw_state = press;
+			// PA6 is pressed
+			else if((button == 0x40) || (button == 0xC0))
+				draw_state = clear;
+			// PA7 is released
+			else if(!button)
+				draw_state = release;
+			break;
+		case release:
+			draw_state = wait;
+			break;
+		case clear:
+			draw_state = wait;
+			break;
+		default:
+			draw_state = wait;
+			break;
+	}
+	switch(draw_state)
+	{
+		case wait:
+			break;
+		case press:
+			// draw the dot
+			// far left
+			if(dot_xVal == 0x7F){
+				pat_xVal[0] = dot_xVal;
+				row = 0;
+			}
+			else if(dot_xVal == 0xBF){
+				pat_xVal[1] = dot_xVal;
+				row = 1;
+			}
+			else if(dot_xVal == 0xDF){
+				pat_xVal[2] = dot_xVal;
+				row = 2;
+			}
+			else if(dot_xVal == 0xEF){
+				pat_xVal[3] = dot_xVal;
+				row = 3;
+			}
+			else if(dot_xVal == 0xF7){
+				pat_xVal[4] = dot_xVal;
+				row = 4;
+			}
+			else if(dot_xVal == 0xFB){
+				pat_xVal[5] = dot_xVal;
+				row = 5;
+			}
+			else if(dot_xVal == 0xFD){
+				pat_xVal[6] = dot_xVal;
+				row = 6;
+			}
+			else if(dot_xVal == 0xFE){
+				pat_xVal[7] = dot_xVal;
+				row = 7;
+			}	
+			
+			pat_yVal[row] = pat_yVal[row] | dot_yVal;
+			
+			/*
+			if(dot_yVal == 0x01)
+				pat_yVal[0] = pat_yVal[0] | dot_yVal;
+			else if(dot_yVal == 0x02)
+				pat_yVal[1] = pat_yVal[1] | dot_yVal;
+			else if(dot_yVal == 0x04)
+				pat_yVal[2] = pat_yVal[2] | dot_yVal;
+			else if(dot_yVal == 0x08)
+				pat_yVal[3] = pat_yVal[3] | dot_yVal;
+			else if(dot_yVal == 0x10)
+				pat_yVal[4] = pat_yVal[4] | dot_yVal;
+			else if(dot_yVal == 0x20)
+				pat_yVal[5] = pat_yVal[5] | dot_yVal;
+			else if(dot_yVal == 0x40)
+				pat_yVal[6] = pat_yVal[6] | dot_yVal;
+			else if(dot_yVal == 0x80)
+				pat_yVal[7] = pat_yVal[7] | dot_yVal;
+			*/
+			break;
+		case release:
+			break;
+		case clear:
+			// clear the array
+			for(int h = 0; h < 8; h++){
+				pat_yVal[h] = 0x00;
+				pat_xVal[h] = 0xFF;
+			}
+			break;
+		default:
+			break;
+	}
+}
 
 int main(void)
 {
 	DDRA = 0x00; PORTA = 0xFF;
-	DDRB = 0x00; PORTB = 0xFF;
+	DDRB = 0xFF; PORTB = 0x00;
 	DDRC = 0xFF; PORTC = 0x00;
 	DDRD = 0xFF; PORTD = 0x00;
 
@@ -195,6 +313,7 @@ int main(void)
 	unsigned long dot_elaspedTime = 1;
 	unsigned long shift_elaspedTime = 100;
 	unsigned long display_elaspedTime = 1;
+	unsigned long draw_user_patterns_elaspedTime = 1;
 	
 	const unsigned char period = 1;
 	TimerSet(period);
@@ -214,6 +333,10 @@ int main(void)
 			display();
 			display_elaspedTime = 0;
 		}
+		if(draw_user_patterns_elaspedTime >= 1){
+			draw_usr_patterns();
+			draw_user_patterns_elaspedTime = 0;
+		}
 		if(shift_elaspedTime >= 100)
 		{
 			shift(refX, refY);
@@ -226,5 +349,6 @@ int main(void)
 		dot_elaspedTime += period;
 		shift_elaspedTime += period;
 		display_elaspedTime += period;
+		draw_user_patterns_elaspedTime += period;
 	}
 }
