@@ -30,5 +30,5 @@ TODO
 - [x] Get joystick to move dot around LED matrix
 - [ ] Be able to draw/drop dots on the screen
 - [ ] Wire LCD and display relevant information (time, menu, etc)
-- [ ] Finish gmae logic
+- [ ] Finish game logic
 - [ ] Clean up wiring and put in a box to make it presentable
