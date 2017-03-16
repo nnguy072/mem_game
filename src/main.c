@@ -13,8 +13,34 @@ unsigned char dot_yVal = 0x04;
 unsigned char dot_xVal = 0xEF;
 
 // for the user pattern
-unsigned char pat_yVal[8] = {0x00, 0x3C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-unsigned char pat_xVal[8] = {0xFF, 0xEF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+unsigned char pat_yVal[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+unsigned char pat_xVal[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+// hard coded countdown patterns
+unsigned char cnt3 = 0;		// used to iterator through patterns
+unsigned char threeTwoOne = 3;
+unsigned char three_yPat[3] = {0x2A, 0x2A, 0x3E};
+unsigned char three_xPat[3] = {0xD7, 0xEF, 0xF7};
+
+unsigned char two_yPat[3] = {0x3A, 0x2A, 0x2E};
+unsigned char two_xPat[3] = {0xDF, 0xEF, 0xF7};
+
+unsigned char one_yPat[3] = {0x22, 0x3E, 0x20};
+unsigned char one_xPat[3] = {0xDF, 0xEF, 0xF7};
+
+// hard coded X and O
+unsigned char cnt6 = 0;
+unsigned char o_yPat[6] = {0x18, 0x24, 0x42, 0x42, 0x24 ,0x18};
+unsigned char o_xPat[6] = {0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFD};
+	
+unsigned char x_yPat[6] = {0x44, 0x28, 0x10, 0x10, 0x28, 0x44};
+unsigned char x_xPat[6] = {0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFD};
+
+// hard coded patterns
+unsigned char cnt8 = 0;				// iterate through 
+unsigned char levels = 0;			// 3 levels/patterns
+unsigned char hi_yPat[8] = {0x00, 0x3E, 0x08, 0x3E, 0x00, 0x34, 0x00, 0x00};
+unsigned char hi_xPat[8] = {0xFF, 0xBF, 0xDF, 0xEF, 0xFF, 0xFB, 0xFF, 0xFF};
 
 // used to iterate through the user pattern
 unsigned char i =  0;
@@ -29,6 +55,21 @@ unsigned char rightMask = 0x01;
 // L/R and U/D values for joystick
 unsigned short L_R_Val = 0x00;
 unsigned short U_D_Val = 0x00;
+
+// buttons and flags
+unsigned char playing = 0;			// turn game off/on
+unsigned char correctPat = 0;		// checks if pattern is correct
+unsigned char complete_game = 0;	// see if the user finished all patterns
+
+// TIMERS
+unsigned int countdown_cnt = 0;				// counter for countdown
+unsigned int countdown_time = 1000;			// set time to 1500ms
+
+unsigned int disp_cnt = 0;					// counter for pattern to replicate
+unsigned int disp_pat_time = 2000;			// set time to 2000ms for displaying pattern
+
+unsigned int wait_cnt = 0;					// counter for how long players have
+unsigned int wait_time = 10000;				// set time to 10000 for user drawing
 
 //---------------------------------------------------------------------------------------
 // FROM: http://www.embedds.com/interfacing-analog-joystick-with-avr/
@@ -67,6 +108,195 @@ void transmit_data(unsigned char data) {
 	PORTC = 0x00;
 }//------------------------------------------------------------------------------------------
 
+
+// Playing state machine
+enum play_states{game_start, disp_3, disp_2, disp_1, disp_pat, game_wait, check, fail, pass, complete} game_state;
+void play_game()
+{
+	unsigned char play_button = ~PINA & 0x20;
+	switch(game_state)
+	{
+		case game_start:
+			if(play_button)
+				game_state = disp_3;
+			else
+				game_state = game_start;
+			break;
+		case disp_3:
+			if(countdown_cnt >= countdown_time){
+				countdown_cnt = 0;
+				game_state = disp_2;
+			}
+			else{
+				countdown_cnt++;
+				game_state = disp_3;
+			}
+			break;
+		case disp_2:
+			if(countdown_cnt >= countdown_time){
+				countdown_cnt = 0;
+				game_state = disp_1;
+			}
+			else{
+				countdown_cnt++;
+				game_state = disp_2;
+			}
+			break;	
+		case disp_1:
+			if(countdown_cnt >= countdown_time){
+				countdown_cnt = 0;
+				game_state = disp_pat;
+			}
+			else{
+				countdown_cnt++;
+				game_state = disp_1;
+			}
+			break;
+		case disp_pat:
+			if(disp_cnt >= disp_pat_time){
+				disp_cnt = 0;
+				game_state = game_wait;
+			}
+			else{
+				disp_cnt++;
+				game_state = disp_pat;
+			}
+			break;
+		case game_wait:
+			if(play_button)
+				game_state = check;
+			if(wait_cnt >= wait_time){
+				wait_cnt = 0;
+				game_state = check;
+			}
+			else{
+				wait_cnt++;
+				game_state = game_wait;
+			}
+			break;
+		case check:
+			if(correctPat)
+				game_state = pass;
+			else
+				game_state = fail;
+			break;
+		case pass:
+			if(countdown_cnt >= disp_pat_time){
+				countdown_cnt = 0;
+				if(complete_game)
+					game_state = complete;
+				else
+					game_state = disp_pat;
+			}
+			else{
+				countdown_cnt++;
+				game_state = pass;
+			}
+			break;
+		case fail:
+			if(countdown_cnt >= countdown_time){
+				countdown_cnt = 0;
+				game_state = game_start;
+			}
+			else{
+				game_state = fail;
+				countdown_cnt++;
+			}
+			break;
+		case complete:
+			if(play_button)
+				game_state = game_start;
+			break;
+		default:
+			game_state = game_start;
+			break;		
+	}
+	switch(game_state)
+	{
+		case game_start:
+			playing = 0;
+			transmit_data(0x00);
+			PORTD = 0xFF;
+			break;
+		case disp_3:
+			transmit_data(three_yPat[cnt3]);
+			PORTD = three_xPat[cnt3];
+			cnt3++;
+			if(cnt3 == 3)
+				cnt3 = 0;
+			break;
+		case disp_2:
+			transmit_data(two_yPat[cnt3]);
+			PORTD = two_xPat[cnt3];
+			cnt3++;
+			if(cnt3 == 3)
+				cnt3 = 0;
+			break;
+		case disp_1:
+			transmit_data(one_yPat[cnt3]);
+			PORTD = one_xPat[cnt3];
+			cnt3++;
+			if(cnt3 == 3)
+				cnt3 = 0;
+			break;
+		case disp_pat:
+			transmit_data(hi_yPat[cnt8]);
+			PORTD = hi_xPat[cnt8];
+			cnt8++;
+			if(cnt8 == 8)
+				cnt8 = 0;
+			break;
+		case game_wait:
+			playing = 1;
+			break;
+		case check:
+			playing = 0;
+			//correctPat
+			unsigned char checkFlag = 0;
+			for(int m = 0; m < 8; m++){
+				if(pat_xVal[m] == hi_xPat[m])
+					checkFlag = 1;
+				else
+					checkFlag = 0;
+				if(checkFlag == 0)
+					break;
+			}
+			if(checkFlag){
+				for(int m = 0; m < 8; m++){
+					if(pat_yVal[m] == hi_yPat[m])
+						checkFlag = 1;
+					else
+						checkFlag = 0;
+					if(checkFlag == 0)
+						break;
+				}
+			}
+			correctPat = checkFlag;
+			// clear arrays
+			for(int h = 0; h < 8; h++){
+				pat_yVal[h] = 0x00;
+				pat_xVal[h] = 0xFF;
+			}
+			break;
+		case pass:
+			transmit_data(o_yPat[cnt6]);
+			PORTD = o_xPat[cnt6];
+			cnt6++;
+			if(cnt6 == 6)
+				cnt6 = 0;
+			break;
+		case fail:
+			transmit_data(x_yPat[cnt6]);
+			PORTD = x_xPat[cnt6];
+			cnt6++;
+			if(cnt6 == 6)
+				cnt6 = 0;
+			break;
+		case complete:
+			break;
+	}
+}
+
 // DRAWS DOT/CURSOR
 enum dot_states{dot} dot_state;
 void dot_draw()
@@ -75,7 +305,6 @@ void dot_draw()
 	{
 		case dot:
 			break;
-			//dot_state = dot;
 		default:
 			break;
 	}
@@ -152,24 +381,7 @@ void shift(unsigned short refX, unsigned short refY)
 		case start:
 			break;
 		case sshift:
-			// (L_R_Val > (refX + 10))	// joystick right
-			// (L_R_Val < (refX - 10))	// joystick left
-			// (U_D_Val > (refY + 10))	// joystick up
-			// (U_D_Val < (refY - 10))	// joystick down
-			
-			/*
-			// used for "normal" orientation
-			if((U_D_Val > (refY + 10)) && ((dot_yVal & upMask) != 0x01))	// check upper boundary 
-				dot_yVal = dot_yVal >> 1;	// shift down
-			else if((U_D_Val < (refY - 10)) && ((dot_yVal & downMask) != 0x80))	// check lower boundary
-				dot_yVal = dot_yVal << 1;	// shift down
-			if((L_R_Val < (refX - 10)) && ((dot_xVal & leftMask) != 0x00))	// check left boundary
-				dot_xVal = (dot_xVal << 1) | 0x01;	// shift left
-			else if((L_R_Val > (refX + 10)) && (dot_xVal & rightMask) != 0x00)	// check right boundary
-				dot_xVal = (dot_xVal >> 1) | 0x80;	// shift right
-			*/
-			
-			// rotated orientation because I tilted my breadboard
+			//using switching L/R for U/D because of orientation of board
 			if((L_R_Val > (refX + 10)) && ((dot_yVal & upMask) != 0x01))	// check upper boundary
 				dot_yVal = dot_yVal >> 1;	// shift up
 			else if((L_R_Val < (refX - 10)) && ((dot_yVal & downMask) != 0x80))	// check lower boundary
@@ -178,7 +390,6 @@ void shift(unsigned short refX, unsigned short refY)
 				dot_xVal = (dot_xVal << 1) | 0x01;	// shift left
 			else if((U_D_Val < (refY - 10)) && (dot_xVal & rightMask) != 0x00)	// check right boundary
 				dot_xVal = (dot_xVal >> 1) | 0x80;	// shift right
-			
 			break;
 	}
 }
@@ -233,7 +444,6 @@ void draw_usr_patterns()
 			break;
 		case press:
 			// draw the dot
-			// far left
 			if(dot_xVal == 0x7F){
 				pat_xVal[0] = dot_xVal;
 				row = 0;
@@ -268,25 +478,6 @@ void draw_usr_patterns()
 			}	
 			
 			pat_yVal[row] = pat_yVal[row] | dot_yVal;
-			
-			/*
-			if(dot_yVal == 0x01)
-				pat_yVal[0] = pat_yVal[0] | dot_yVal;
-			else if(dot_yVal == 0x02)
-				pat_yVal[1] = pat_yVal[1] | dot_yVal;
-			else if(dot_yVal == 0x04)
-				pat_yVal[2] = pat_yVal[2] | dot_yVal;
-			else if(dot_yVal == 0x08)
-				pat_yVal[3] = pat_yVal[3] | dot_yVal;
-			else if(dot_yVal == 0x10)
-				pat_yVal[4] = pat_yVal[4] | dot_yVal;
-			else if(dot_yVal == 0x20)
-				pat_yVal[5] = pat_yVal[5] | dot_yVal;
-			else if(dot_yVal == 0x40)
-				pat_yVal[6] = pat_yVal[6] | dot_yVal;
-			else if(dot_yVal == 0x80)
-				pat_yVal[7] = pat_yVal[7] | dot_yVal;
-			*/
 			break;
 		case release:
 			break;
@@ -314,6 +505,7 @@ int main(void)
 	unsigned long shift_elaspedTime = 100;
 	unsigned long display_elaspedTime = 1;
 	unsigned long draw_user_patterns_elaspedTime = 1;
+	unsigned long play_elaspedTime = 1;
 	
 	const unsigned char period = 1;
 	TimerSet(period);
@@ -325,22 +517,30 @@ int main(void)
 	
 	while(1)
 	{
-		if(dot_elaspedTime >= 10){
-			dot_draw();
-			dot_elaspedTime = 0;
-		}
-		if(dot_elaspedTime >= 1){
-			display();
-			display_elaspedTime = 0;
-		}
-		if(draw_user_patterns_elaspedTime >= 1){
-			draw_usr_patterns();
-			draw_user_patterns_elaspedTime = 0;
-		}
-		if(shift_elaspedTime >= 100)
+		if(play_elaspedTime >= 1)
 		{
-			shift(refX, refY);
-			shift_elaspedTime = 0;
+			play_game();
+			play_elaspedTime = 0;
+		}
+		if(playing)
+		{
+			if(display_elaspedTime >= 1){
+				display();
+				display_elaspedTime = 0;
+			}
+			if(draw_user_patterns_elaspedTime >= 1){
+				draw_usr_patterns();
+				draw_user_patterns_elaspedTime = 0;
+			}
+			if(dot_elaspedTime >= 10){
+				dot_draw();
+				dot_elaspedTime = 0;
+			}
+			if(shift_elaspedTime >= 100)
+			{
+				shift(refX, refY);
+				shift_elaspedTime = 0;
+			}
 		}
 		
 		while(!TimerFlag);
@@ -350,5 +550,6 @@ int main(void)
 		shift_elaspedTime += period;
 		display_elaspedTime += period;
 		draw_user_patterns_elaspedTime += period;
+		play_elaspedTime += period;
 	}
 }
