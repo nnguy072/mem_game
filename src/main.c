@@ -28,6 +28,10 @@ unsigned char two_xPat[3] = {0xDF, 0xEF, 0xF7};
 unsigned char one_yPat[3] = {0x22, 0x3E, 0x20};
 unsigned char one_xPat[3] = {0xDF, 0xEF, 0xF7};
 
+// win screen pattern
+unsigned char win_yPat[8] = {0x08, 0x10, 0x22, 0x28, 0x28, 0x22, 0x10, 0x08};
+unsigned char win_xPat[8] = {0x7F, 0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFD, 0xFE};
+	
 // hard coded X and O
 unsigned char cnt6 = 0;
 unsigned char o_yPat[6] = {0x18, 0x24, 0x42, 0x42, 0x24 ,0x18};
@@ -39,8 +43,18 @@ unsigned char x_xPat[6] = {0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFD};
 // hard coded patterns
 unsigned char cnt8 = 0;				// iterate through 
 unsigned char levels = 0;			// 3 levels/patterns
+
+// "Hi"
 unsigned char hi_yPat[8] = {0x00, 0x3E, 0x08, 0x3E, 0x00, 0x34, 0x00, 0x00};
 unsigned char hi_xPat[8] = {0xFF, 0xBF, 0xDF, 0xEF, 0xFF, 0xFB, 0xFF, 0xFF};
+
+// SQUARE
+unsigned char pat1_yPat[8] = {0x00, 0x00, 0x3C, 0x24, 0x24, 0x3C, 0x00, 0x00};
+unsigned char pat1_xPat[8] = {0xFF, 0xFF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFF, 0xFF};
+	
+// WEIRD PENTAGON
+unsigned char pat2_yPat[8] = {0x1F, 0x21, 0x45, 0x91, 0x91, 0x45, 0x21, 0x1F};
+unsigned char pat2_xPat[8] = {0x7F, 0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFD, 0xFE};
 
 // used to iterate through the user pattern
 unsigned char i =  0;
@@ -55,6 +69,10 @@ unsigned char rightMask = 0x01;
 // L/R and U/D values for joystick
 unsigned short L_R_Val = 0x00;
 unsigned short U_D_Val = 0x00;
+
+// mic
+unsigned short mic_val = 0x00;
+unsigned short mic_ref = 0x00;
 
 // buttons and flags
 unsigned char playing = 0;			// turn game off/on
@@ -114,6 +132,7 @@ enum play_states{game_start, disp_3, disp_2, disp_1, disp_pat, game_wait, check,
 void play_game()
 {
 	unsigned char play_button = ~PINA & 0x20;
+	
 	switch(game_state)
 	{
 		case game_start:
@@ -155,6 +174,12 @@ void play_game()
 		case disp_pat:
 			if(disp_cnt >= disp_pat_time){
 				disp_cnt = 0;
+				if(levels == 0)
+					wait_time = 7000;
+				else if(levels == 1)
+					wait_time = 10000;
+				else if(levels == 2)
+					wait_time = 13000;
 				game_state = game_wait;
 			}
 			else{
@@ -175,10 +200,14 @@ void play_game()
 			}
 			break;
 		case check:
-			if(correctPat)
+			if(correctPat){
+				levels++;
 				game_state = pass;
-			else
+			}
+			else{
+				levels = 0;
 				game_state = fail;
+			}
 			break;
 		case pass:
 			if(countdown_cnt >= disp_pat_time){
@@ -204,8 +233,15 @@ void play_game()
 			}
 			break;
 		case complete:
-			if(play_button)
-				game_state = game_start;
+			if(countdown_cnt >= disp_pat_time){
+				countdown_cnt = 0;
+				if(play_button)
+					game_state = game_start;
+			}
+			else{
+				countdown_cnt++;
+				game_state = complete;
+			}
 			break;
 		default:
 			game_state = game_start;
@@ -215,6 +251,7 @@ void play_game()
 	{
 		case game_start:
 			playing = 0;
+			levels = 0;
 			transmit_data(0x00);
 			PORTD = 0xFF;
 			break;
@@ -240,38 +277,100 @@ void play_game()
 				cnt3 = 0;
 			break;
 		case disp_pat:
-			transmit_data(hi_yPat[cnt8]);
-			PORTD = hi_xPat[cnt8];
-			cnt8++;
-			if(cnt8 == 8)
-				cnt8 = 0;
+			if(levels == 0){
+				transmit_data(pat1_yPat[cnt8]);
+				PORTD = pat1_xPat[cnt8];
+				cnt8++;
+				if(cnt8 == 8)
+					cnt8 = 0;
+			}
+			else if(levels == 1){
+				transmit_data(hi_yPat[cnt8]);
+				PORTD = hi_xPat[cnt8];
+				cnt8++;
+				if(cnt8 == 8)
+					cnt8 = 0;
+			}
+			else if(levels == 2){
+				transmit_data(pat2_yPat[cnt8]);
+				PORTD = pat2_xPat[cnt8];
+				cnt8++;
+				if(cnt8 == 8)
+					cnt8 = 0;
+			}
 			break;
 		case game_wait:
 			playing = 1;
 			break;
 		case check:
 			playing = 0;
-			//correctPat
 			unsigned char checkFlag = 0;
-			for(int m = 0; m < 8; m++){
-				if(pat_xVal[m] == hi_xPat[m])
-					checkFlag = 1;
-				else
-					checkFlag = 0;
-				if(checkFlag == 0)
-					break;
-			}
-			if(checkFlag){
+			
+			if(levels == 0){
 				for(int m = 0; m < 8; m++){
-					if(pat_yVal[m] == hi_yPat[m])
+					if(pat_xVal[m] == pat1_xPat[m])
 						checkFlag = 1;
 					else
 						checkFlag = 0;
 					if(checkFlag == 0)
 						break;
 				}
+				if(checkFlag){
+					for(int m = 0; m < 8; m++){
+						if(pat_yVal[m] == pat1_yPat[m])
+							checkFlag = 1;
+						else
+							checkFlag = 0;
+						if(checkFlag == 0)
+							break;
+					}
+				}
+				correctPat = checkFlag;
 			}
-			correctPat = checkFlag;
+			else if(levels == 1){
+				for(int m = 0; m < 8; m++){
+					if(pat_xVal[m] == hi_xPat[m])
+						checkFlag = 1;
+					else
+						checkFlag = 0;
+					if(checkFlag == 0)
+						break;
+				}
+				if(checkFlag){
+					for(int m = 0; m < 8; m++){
+						if(pat_yVal[m] == hi_yPat[m])
+							checkFlag = 1;
+						else
+							checkFlag = 0;
+						if(checkFlag == 0)
+							break;
+					}
+				}
+				correctPat = checkFlag;
+			}
+			else if(levels == 2){
+				for(int m = 0; m < 8; m++){
+					if(pat_xVal[m] == pat2_xPat[m])
+						checkFlag = 1;
+					else
+						checkFlag = 0;
+					if(checkFlag == 0)
+						break;
+				}
+				if(checkFlag){
+					for(int m = 0; m < 8; m++){
+						if(pat_yVal[m] == pat2_yPat[m])
+							checkFlag = 1;
+						else
+							checkFlag = 0;
+						if(checkFlag == 0)
+							break;
+					}
+				}
+				correctPat = checkFlag;
+			}
+			
+			
 			// clear arrays
 			for(int h = 0; h < 8; h++){
 				pat_yVal[h] = 0x00;
@@ -284,6 +383,10 @@ void play_game()
 			cnt6++;
 			if(cnt6 == 6)
 				cnt6 = 0;
+			if(levels == 3){
+				levels = 0;
+				complete_game = 1;
+			}
 			break;
 		case fail:
 			transmit_data(x_yPat[cnt6]);
@@ -293,6 +396,11 @@ void play_game()
 				cnt6 = 0;
 			break;
 		case complete:
+			transmit_data(win_yPat[cnt8]);
+			PORTD = win_xPat[cnt8];
+			cnt8++;
+			if(cnt8 == 8)
+				cnt8 = 0;
 			break;
 	}
 }
@@ -514,6 +622,7 @@ int main(void)
 
 	unsigned short refX = readadc(0);
 	unsigned short refY = readadc(1);
+	mic_ref = readadc(2);
 	
 	while(1)
 	{
