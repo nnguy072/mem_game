@@ -1,6 +1,9 @@
 #include<avr/io.h>
+#include <stdio.h>
 #include "timer.h"
 #include "scheduler.h"
+#include "nokia5110.h"
+#include "nokia5110.c"
 
 //y-axis that determine which row that can be lit
 //x-axis that actually lights up the column
@@ -70,14 +73,15 @@ unsigned char rightMask = 0x01;
 unsigned short L_R_Val = 0x00;
 unsigned short U_D_Val = 0x00;
 
-// mic
-unsigned short mic_val = 0x00;
-unsigned short mic_ref = 0x00;
-
 // buttons and flags
 unsigned char playing = 0;			// turn game off/on
 unsigned char correctPat = 0;		// checks if pattern is correct
 unsigned char complete_game = 0;	// see if the user finished all patterns
+unsigned char render_screen = 0;
+unsigned char write_to_lcd = 0;
+unsigned char win_screen = 0;
+unsigned char lose_screen = 0;
+unsigned char firstplay = 1;
 
 // TIMERS
 unsigned int countdown_cnt = 0;				// counter for countdown
@@ -206,6 +210,7 @@ void play_game()
 			}
 			else{
 				levels = 0;
+				lose_screen = 1;
 				game_state = fail;
 			}
 			break;
@@ -235,8 +240,7 @@ void play_game()
 		case complete:
 			if(countdown_cnt >= disp_pat_time){
 				countdown_cnt = 0;
-				if(play_button)
-					game_state = game_start;
+				game_state = game_start;
 			}
 			else{
 				countdown_cnt++;
@@ -254,6 +258,26 @@ void play_game()
 			levels = 0;
 			transmit_data(0x00);
 			PORTD = 0xFF;
+			if(firstplay){
+				nokia_lcd_clear();
+				nokia_lcd_write_string("Match the", 1);
+				nokia_lcd_set_cursor(0,10);
+				nokia_lcd_write_string("pattern!", 1);
+				nokia_lcd_render();
+				firstplay = 0;
+			}
+			if(win_screen){
+				nokia_lcd_clear();
+				nokia_lcd_write_string("You win!", 1);
+				nokia_lcd_render();
+				win_screen = 0;
+			}
+			if(lose_screen){
+				nokia_lcd_clear();
+				nokia_lcd_write_string("You lose!", 1);
+				nokia_lcd_render();
+				lose_screen = 0;
+			}
 			break;
 		case disp_3:
 			transmit_data(three_yPat[cnt3]);
@@ -301,6 +325,10 @@ void play_game()
 			break;
 		case game_wait:
 			playing = 1;
+			if((wait_cnt % 1000) == 0)
+				write_to_lcd = 1;
+			else
+				write_to_lcd = 0;
 			break;
 		case check:
 			playing = 0;
@@ -385,6 +413,7 @@ void play_game()
 				cnt6 = 0;
 			if(levels == 3){
 				levels = 0;
+				win_screen = 1;
 				complete_game = 1;
 			}
 			break;
@@ -405,6 +434,62 @@ void play_game()
 	}
 }
 
+unsigned int temp = 0;
+
+enum LCD_states{lcd_wait, lcd_write} LCD_state;
+void lcd()
+{
+	switch(LCD_state)
+	{
+		case lcd_wait:
+			if(write_to_lcd)
+				LCD_state = lcd_write;
+			else
+				LCD_state = lcd_wait;
+			break;
+		case lcd_write:
+			LCD_state = lcd_wait;
+			break;
+		default:
+			LCD_state = lcd_wait;
+			break;
+	}
+	switch(LCD_state)
+	{
+		case lcd_wait:
+			break;
+		case lcd_write:
+			temp = wait_time - wait_cnt;
+			nokia_lcd_clear();
+			if((temp <= 13000) && (temp >= 12000))
+				nokia_lcd_write_string("12", 6);
+			else if((temp < 12000) && (temp >= 11000))
+				nokia_lcd_write_string("11", 6);
+			else if((temp < 11000) && (temp >= 10000))
+				nokia_lcd_write_string("10", 6);
+			else if((temp < 10000) && (temp >= 9000))
+				nokia_lcd_write_string("9", 6);
+			else if((temp < 9000) && (temp >= 8000))
+				nokia_lcd_write_string("8", 6);
+			else if((temp < 8000) && (temp >= 7000))
+				nokia_lcd_write_string("7", 6);
+			else if((temp < 7000) && (temp >= 6000))
+				nokia_lcd_write_string("6", 6);
+			else if((temp < 6000) && (temp >= 5000))
+				nokia_lcd_write_string("5", 6);
+			else if((temp < 5000) && (temp >= 4000))
+				nokia_lcd_write_string("4", 6);
+			else if((temp < 4000) && (temp >= 3000))
+				nokia_lcd_write_string("3", 6);
+			else if((temp < 3000) && (temp >= 2000))
+				nokia_lcd_write_string("2", 6);
+			else if((temp < 2000) && (temp >= 1000))
+				nokia_lcd_write_string("1", 6);
+			nokia_lcd_render();
+			write_to_lcd = 0;
+			break;
+	}	
+}
 // DRAWS DOT/CURSOR
 enum dot_states{dot} dot_state;
 void dot_draw()
@@ -614,6 +699,7 @@ int main(void)
 	unsigned long display_elaspedTime = 1;
 	unsigned long draw_user_patterns_elaspedTime = 1;
 	unsigned long play_elaspedTime = 1;
+	unsigned long lcd_elaspedTime = 500;
 	
 	const unsigned char period = 1;
 	TimerSet(period);
@@ -622,7 +708,8 @@ int main(void)
 
 	unsigned short refX = readadc(0);
 	unsigned short refY = readadc(1);
-	mic_ref = readadc(2);
+	
+	nokia_lcd_init();
 	
 	while(1)
 	{
@@ -650,6 +737,11 @@ int main(void)
 				shift(refX, refY);
 				shift_elaspedTime = 0;
 			}
+			if(lcd_elaspedTime >= 500)
+			{
+				lcd();
+				lcd_elaspedTime = 0;
+			}
 		}
 		
 		while(!TimerFlag);
@@ -660,5 +752,6 @@ int main(void)
 		display_elaspedTime += period;
 		draw_user_patterns_elaspedTime += period;
 		play_elaspedTime += period;
+		lcd_elaspedTime += period;
 	}
 }
