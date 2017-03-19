@@ -30,6 +30,7 @@ Controls:
 COMPONETS
 ---
 Pinout:
+
 ![alt tag](https://cloud.githubusercontent.com/assets/10384453/24078576/a4ebaaa6-0c2e-11e7-9240-1759076e3552.PNG)
 
 Input
