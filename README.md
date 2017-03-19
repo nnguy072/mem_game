@@ -10,6 +10,12 @@ CONTENTS
 ---
 Mem game is a memory game written in C using ATMEL studios and an ATMEGA1284P. It is a game where a pattern will appear on an LED matrix and the player will have to replicate the pattern. The player uses a joystick to navigate around the LED matrix and will press a button to "draw" the pattern. The LCD screen displays the remaining time and upon completion, will notify the player if they have lost or won the game. The player wins if/when they correctly replicate all the patterns. Alternatively, the player loses if they run out of time.
 
+Picture(s)
+---
+Board:
+
+![alt tag](https://drive.google.com/file/d/0B-8QGTy3y8hdQlI3eXhyYTFna3c/view)
+
 User Guide
 ---
 Rules:
@@ -24,6 +30,10 @@ Controls:
 
 COMPONETS
 ---
+Pinout:
+
+![alt tag](https://drive.google.com/file/d/0B-8QGTy3y8hddVNnZ1ZQN0NrRjg/view)
+
 Input
   * Joystick
   * On/Off Button
