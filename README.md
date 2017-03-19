@@ -13,7 +13,7 @@ Mem game is a memory game written in C using ATMEL studios and an ATMEGA1284P. I
 Picture(s)
 ---
 Board:
-![alt tag](https://tinyurl.com/mbmu74f)
+![alt tag](https://cloud.githubusercontent.com/assets/10384453/24078577/a5cb3400-0c2e-11e7-8d34-90003c691bea.jpg)
 
 User Guide
 ---
@@ -30,8 +30,7 @@ Controls:
 COMPONETS
 ---
 Pinout:
-![alt tag](https://lh4.googleusercontent.com/Mcu0HRlvObIhWDQxBTqTlGuSnNIQyifv0wZ1g4Ww49JldkTK-K17cAoEnnoWKqEYBrbBvzlAozRV5N4=w2802-h1454-rw)
-
+![alt tag](https://cloud.githubusercontent.com/assets/10384453/24078576/a4ebaaa6-0c2e-11e7-9240-1759076e3552.PNG)
 Input
   * Joystick
   * On/Off Button
