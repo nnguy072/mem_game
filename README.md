@@ -27,7 +27,7 @@ Controls:
   * middle button clears the screen
   * left most button starts the game
 
-COMPONETS
+COMPONENTS
 ---
 Pinout:
 
@@ -53,7 +53,6 @@ TODO
 - [x] Be able to draw/drop dots on the screen
 - [x] Wire LCD and display relevant information (time, menu, etc)
 - [x] Finish game logic
-- [ ] Clean up wiring and put in a box to make it presentable
 - [x] Make videos/upload images to youtube/github
 
 BUGS
